@@ -1,0 +1,62 @@
+---
+workflow:
+    rules:
+      - if: $CI_COMMIT_BRANCH != main 
+        when: never
+      - when: always
+
+#variables:
+#  TF_DIR: $CI_PROJECT_DIR/iam-sso
+
+stages: 
+  - validate
+  - plan
+  - apply
+
+image: 
+  name: globe.pe.jfrog.io/hmd-docker-virtual/docker-jfrog-base:v1.1.0
+  entrypoint: [""]
+
+before_script:
+  - terraform --version
+  - rm -rf .terraform
+  - terraform init
+
+validate:
+  stage: validate
+  script:
+    - terraform validate
+  cache:
+    key: $CI_COMMIT_REF_NAME
+    paths:
+    - .terraform
+    policy: pull-push
+
+plan:
+  stage: plan
+  script: 
+   - terraform plan
+  dependancies: 
+   - validate 
+  cache:
+    key: $CI_COMMIT_REF_NAME
+    paths:
+    - .terraform
+    policy: pull
+
+apply:
+  stage: apply
+  script: 
+    - terraform apply -auto-approve -var "permission_set_name=${SSO_PERMISSION_SET}" \
+        -var "ticket=${SNOW_TICKET}" \
+        -var "services=${AWS_SERVICES}" \
+        -var "permrequired=${PERMISSIONS}" \
+        -var "owneremail=${OWNER_EMAIL}" \
+  dependancies:
+    - plan
+  cache:
+    key: $CI_COMMIT_REF_NAME
+    paths:
+    - .terraform
+    policy: pull
+     
